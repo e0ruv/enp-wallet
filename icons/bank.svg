@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 360" role="img" aria-label="계좌">
+  <circle cx="180" cy="180" r="180" fill="#D91921"/>
+  <g fill="#FFFFFF">
+    <polygon points="180,95 275,141 85,141"/>
+    <rect x="79" y="146" width="203" height="14" rx="1"/>
+    <rect x="90" y="164" width="36" height="7"/>
+    <rect x="96" y="171" width="23" height="75"/>
+    <rect x="90" y="246" width="36" height="7"/>
+    <rect x="138" y="164" width="36" height="7"/>
+    <rect x="145" y="171" width="23" height="75"/>
+    <rect x="138" y="246" width="36" height="7"/>
+    <rect x="187" y="164" width="36" height="7"/>
+    <rect x="193" y="171" width="23" height="75"/>
+    <rect x="187" y="246" width="36" height="7"/>
+    <rect x="235" y="164" width="36" height="7"/>
+    <rect x="241" y="171" width="23" height="75"/>
+    <rect x="235" y="246" width="36" height="7"/>
+    <rect x="74" y="257" width="212" height="9"/>
+  </g>
+  <circle cx="180" cy="119.5" r="8.6" fill="#D91921"/>
+</svg>
