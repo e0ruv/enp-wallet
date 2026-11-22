@@ -1493,7 +1493,7 @@ function startPriceTicker(){
 /* ---------------- crypto: PBKDF2 + AES-GCM ---------------- */
 const DEFAULT_PIN='6160';
 const REPO={owner:'e0ruv',name:'enp-wallet',path:'data/wallet.enc.json',branch:'main'};
-const KDF_ITER=200000;
+const KDF_ITER=310000;
 const encU=new TextEncoder(), decU=new TextDecoder();
 const subtle=()=> (window.crypto&&crypto.subtle)?crypto.subtle:null;
 function b64e(buf){ const u=(buf instanceof Uint8Array)?buf:new Uint8Array(buf); let s=''; for(let i=0;i<u.length;i++) s+=String.fromCharCode(u[i]); return btoa(s); }
