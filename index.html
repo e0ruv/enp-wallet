@@ -34,6 +34,8 @@
   --ease:cubic-bezier(.22,1,.36,1);
 }
 html{-webkit-text-size-adjust:100%}
+/* 잠금 상태에서는 자산 화면을 미리 그리지 않아요(깜빡임·금액 노출 방지) */
+body:not(.unlocked)>header.topbar,body:not(.unlocked)>main.wrap{visibility:hidden}
 body{
   margin:0;min-height:100dvh;color:var(--txt);
   background:
@@ -1308,6 +1310,7 @@ async function verifyPin(pin){
 function setLockMsg(t,wait){ const m=$('#lockMsg'); if(m){ m.textContent=t||''; m.classList.toggle('wait',!!wait); } }
 function unlockOk(){
   unlocked=true;
+  document.body.classList.add('unlocked');
   $('#lock').hidden=true;
   document.body.style.overflow='';
   renderAll(); renderTop();
@@ -1852,7 +1855,7 @@ document.addEventListener('click',e=>{
     case 'pin:toggle':
       if(S.pinOff) openPinSheet('set'); else openPinSheet('off');
       return;
-    case 'lock:now': closeSheet(); unlocked=false; currentPin=null; showLock(); return;
+    case 'lock:now': closeSheet(); unlocked=false; currentPin=null; document.body.classList.remove('unlocked'); showLock(); return;
   }
 
   /* sheet-specific */
@@ -1968,6 +1971,7 @@ $('#fileIn').addEventListener('change',e=>{
 /* ---------------- boot ---------------- */
 renderAll();
 if(fresh) save(); else renderTop();   /* persist seed on first run only */
+if(S.pinOff) document.body.classList.add('unlocked');
 fetchRemote();                        /* warm the encrypted file so one PIN entry also opens remote data */
 if(!S.pinOff&&!unlocked) showLock();
 
