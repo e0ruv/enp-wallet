@@ -1,6 +1,6 @@
 /* enp wallet — network-first service worker.
    항상 최신 응답을 먼저 받아오고(특히 data/wallet.enc.json), 오프라인일 때만 캐시를 써요. */
-const CACHE = 'enp-wallet-v1';
+const CACHE = 'enp-wallet-v2';
 const CORE = [
   './',
   './index.html',

@@ -32,6 +32,9 @@
   --coral:#F04452; --coral-soft:rgba(240,68,82,.12);
   --r:24px; --r2:16px;
   --ease:cubic-bezier(.22,1,.36,1);
+  /* 홈 화면 앱(black-translucent)에서 상태 표시줄과 겹치지 않게 쓰는 안전영역 값 */
+  --safe-top:env(safe-area-inset-top, 0px);
+  --safe-bottom:env(safe-area-inset-bottom, 0px);
 }
 html{-webkit-text-size-adjust:100%}
 /* 잠금 상태에서는 자산 화면을 미리 그리지 않아요(깜빡임·금액 노출 방지) */
@@ -56,7 +59,7 @@ input{font-family:inherit}
 .topbar{position:sticky;top:0;z-index:40;background:rgba(16,16,20,.74);
   backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);
   border-bottom:1px solid rgba(255,255,255,.045)}
-.topbar-in{max-width:1080px;margin:0 auto;padding:12px 28px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.topbar-in{max-width:1080px;margin:0 auto;padding:calc(12px + var(--safe-top)) 28px 12px;display:flex;align-items:center;justify-content:space-between;gap:14px}
 .brand{display:flex;align-items:center;gap:10px;min-width:0}
 .mark{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;flex:none;color:#fff;
   background:radial-gradient(120% 120% at 30% 0%,#1B2748 0%,#121A30 55%,#0C1222 100%);
@@ -360,7 +363,7 @@ input{font-family:inherit}
 .key:active{background:#35353E;transform:scale(.97)}
 .key.del{font-size:17px;color:var(--txt-2)}
 
-.lock{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:28px;
+.lock{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:calc(28px + var(--safe-top)) 28px calc(28px + var(--safe-bottom));
   background:radial-gradient(600px 460px at 50% -8%,rgba(49,130,246,.16),rgba(16,16,20,0) 64%),var(--bg)}
 .lock[hidden]{display:none}
 .lock-in{width:min(320px,100%);display:flex;flex-direction:column;align-items:center;text-align:center}
@@ -439,7 +442,7 @@ input{font-family:inherit}
   .lg{flex:1}
 }
 @media (max-width:640px){
-  .topbar-in{padding:10px 16px;gap:10px}
+  .topbar-in{padding:calc(10px + var(--safe-top)) 16px 10px;gap:10px}
   .mark{width:32px;height:32px;border-radius:10px}
   .mark svg{width:18px;height:18px}
   .brand-txt b{font-size:15px}
@@ -501,11 +504,11 @@ input{font-family:inherit}
   .tip-list{padding:6px 16px 0}
   .overlay{padding:0;align-items:flex-end}
   .overlay.show .sheet{transform:none}
-  .sheet{width:100%;max-height:90dvh;border-radius:22px 22px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom));
+  .sheet{width:100%;max-height:90dvh;border-radius:22px 22px 0 0;padding:20px 18px calc(18px + var(--safe-bottom));
     transform:translateY(20px);border-bottom:0}
   .sheet-head h3{font-size:18px}
   .btn{height:50px;font-size:14.5px}
-  .toast{bottom:calc(18px + env(safe-area-inset-bottom))}
+  .toast{bottom:calc(18px + var(--safe-bottom))}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.001s !important;transition-duration:.001s !important}
@@ -684,6 +687,23 @@ input{font-family:inherit}
 'use strict';
 
 const KEY='enp-wallet.v1';
+/* 복구용: 마지막으로 정상 저장됐던 직전 데이터 / 읽지 못한 원본(지우지 않고 보관) */
+const KEY_PREV=KEY+'.prev';
+const KEY_BROKEN=KEY+'.broken';
+let restoreNotice='';
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); return true; }catch(e){ return false; } }
+/* 사용자가 직접 넣은 숫자(트론 수량·계좌·목표·시세 보정)만 뽑아 비교한다 */
+function walletCore(o){
+  if(!o||typeof o!=='object') return '';
+  const acc=Array.isArray(o.accounts)
+    ? o.accounts.filter(a=>a&&a.id).map(a=>[String(a.id),String(a.name==null?'':a.name),Number(a.balance)||0])
+    : null;
+  const goal=(o.goal==null)?null:(Number(o.goal)||0);
+  const off=Number.isFinite(Number(o.priceOffset))?Math.round(Number(o.priceOffset)*100)/100:0;
+  return JSON.stringify([Math.round((Number(o.trxQty)||0)*1e6)/1e6,acc,goal,off]);
+}
+function numOr(v,d){ const n=Number(v); return Number.isFinite(n)?n:d; }
 const $=(s,r=document)=>r.querySelector(s);
 const nf0=new Intl.NumberFormat('ko-KR',{maximumFractionDigits:0});
 const nf2=new Intl.NumberFormat('ko-KR',{maximumFractionDigits:2});
@@ -704,9 +724,11 @@ const ICON_BANK='<svg viewBox="0 0 360 360" aria-hidden="true">'+
 
 /* ---------------- state ---------------- */
 function defaults(){
+  /* 숫자는 기본값으로 채우지 않는다 — 처음 열었을 때나 되살릴 수 없을 때도 '빈 지갑'으로 시작
+     (예전에는 4,700,000원 계좌·1,200 TRX가 깔려 있어서, 저장이 날아가면 잔액이 바뀐 것처럼 보였다) */
   return {
     v:1,
-    trxQty:1200,
+    trxQty:0,
     trxPrice:350,
     priceOffset:-0.24,
     priceRaw:null,
@@ -714,11 +736,8 @@ function defaults(){
     priceFeed:'global',
     priceSource:'수동',
     priceAt:null,
-    accounts:[
-      {id:'acc_main',name:'주거래 계좌',balance:3200000},
-      {id:'acc_save',name:'비상금 계좌',balance:1500000}
-    ],
-    goal:10000000,
+    accounts:[],
+    goal:null,
     log:[],
     mask:false,
     pinHash:null,
@@ -729,29 +748,49 @@ function defaults(){
 }
 function load(){
   const base=defaults();
-  let raw=null;
-  try{ raw=localStorage.getItem(KEY); }catch(e){ return base; }
-  if(!raw) return base;
-  let p;
-  try{ p=JSON.parse(raw); }catch(e){ return base; }
-  if(!p||typeof p!=='object') return base;
-  const s=Object.assign(base,p);
-  s.trxQty=Math.max(0,Number(s.trxQty)||0);
-  s.trxPrice=Math.max(0,Number(s.trxPrice)||0)||base.trxPrice;
-  const offIn=p.priceOffset;
-  const offNum=(offIn==null||offIn==='')?NaN:Number(offIn);
-  s.priceOffset=Number.isFinite(offNum)?Math.max(-1e6,Math.min(1e6,Math.round(offNum*100)/100)):base.priceOffset;
+  const raw=lsGet(KEY);
+  let p=null;
+  if(raw){
+    try{ p=JSON.parse(raw); }catch(e){ p=null; }
+    if(!p||typeof p!=='object'||Array.isArray(p)) p=null;
+  }
+  if(raw&&!p){
+    /* 읽지 못한 원본은 지우지 않고 따로 남겨 둔다(나중에 되살릴 수 있게) */
+    lsSet(KEY_BROKEN,raw);
+  }
+  if(!p){
+    /* 본 데이터가 없거나 깨졌으면 직전 정상본으로 되살린다 — 기본값으로 덮어쓰지 않는다 */
+    const prev=lsGet(KEY_PREV);
+    if(prev){
+      try{
+        const q=JSON.parse(prev);
+        if(q&&typeof q==='object'&&!Array.isArray(q)){ p=q; restoreNotice='저장된 지갑을 직전 데이터로 되살렸어요'; }
+      }catch(e){}
+    }
+  }
+  if(!p) return base;                 /* 이 기기에서 지갑을 처음 여는 경우에만 기본값 */
+  const s=Object.assign({},base,p);   /* 저장된 값이 있으면 그 값이 항상 이긴다 */
+  const has=k=>Object.prototype.hasOwnProperty.call(p,k)&&p[k]!==undefined;
+  /* 저장된 값이 없을 때 기본값(예: -0.24원 보정, 4,700,000원 계좌)을 끼워 넣지 않는다 */
+  s.trxQty=has('trxQty')?Math.max(0,numOr(p.trxQty,0)):0;
+  s.trxPrice=has('trxPrice')?Math.max(0,numOr(p.trxPrice,0)):0;
+  s.priceOffset=has('priceOffset')?Math.max(-1e6,Math.min(1e6,Math.round(numOr(p.priceOffset,0)*100)/100)):0;
   s.priceRaw=Number(p.priceRaw)>0?Math.round(Number(p.priceRaw)*100)/100:null;
-  s.accounts=Array.isArray(p.accounts)
-    ? p.accounts.filter(a=>a&&a.id).map(a=>({id:String(a.id),name:String(a.name||'계좌'),balance:Math.max(0,Number(a.balance)||0)}))
-    : base.accounts;
-  s.goal=p.goal==null?null:Math.max(0,Number(p.goal)||0);
+  s.accounts=has('accounts')
+    ? (Array.isArray(p.accounts)
+        ? p.accounts.filter(a=>a&&a.id).map(a=>({id:String(a.id),name:String(a.name||'계좌'),balance:Math.max(0,numOr(a.balance,0))}))
+        : [])
+    : [];
+  s.goal=(p.goal==null)?null:Math.max(0,numOr(p.goal,0));
   s.log=Array.isArray(p.log)?p.log.slice(0,80):[];
-  s.mask=!!p.mask;
+  s.mask=p.mask===true;
   s.autoPrice=p.autoPrice!==false;
   s.priceFeed=(p.priceFeed==='upbit')?'upbit':'global';
+  s.priceSource=typeof p.priceSource==='string'?p.priceSource:'수동';
+  s.priceAt=Number(p.priceAt)>0?Number(p.priceAt):null;
   s.pinHash=typeof p.pinHash==='string'&&p.pinHash?p.pinHash:null;
   s.pinOff=p.pinOff===true;
+  s.savedAt=Number(p.savedAt)||Date.now();
   const sy=(p.sync&&typeof p.sync==='object')?p.sync:{};
   s.sync={
     token:typeof sy.token==='string'?sy.token:'',
@@ -766,8 +805,7 @@ function load(){
 }
 
 let S;
-let fresh=false;
-try{ fresh=!localStorage.getItem(KEY); }catch(e){}
+let fresh=!lsGet(KEY)&&!lsGet(KEY_PREV)&&!lsGet(KEY_BROKEN);
 S=load();
 if(fresh){
   S.log=[{id:uid(),ts:Date.now(),kind:'init'}];
@@ -788,7 +826,16 @@ function save(){
   markDirty();
 }
 function persist(){
-  try{ localStorage.setItem(KEY,JSON.stringify(S)); }
+  const next=JSON.stringify(S);
+  try{
+    const cur=localStorage.getItem(KEY);
+    if(cur&&cur!==next){
+      let prev=null; try{ prev=JSON.parse(cur); }catch(e){}
+      /* 사용자가 넣은 숫자가 바뀌는 순간에만 직전 값을 남겨 둔다(시세 갱신만으로는 남기지 않음) */
+      if(!prev||walletCore(prev)!==walletCore(S)) localStorage.setItem(KEY_PREV,cur);
+    }
+  }catch(e){}
+  try{ localStorage.setItem(KEY,next); }
   catch(e){ toast('저장 공간이 부족해 저장하지 못했어요'); }
 }
 
@@ -1388,6 +1435,7 @@ function openPriceSheet(){
       '</div>'+
       '<p class="hint">'+hintTxt+'</p>'+
       '<p class="hint">코인게코(글로벌) = 글로벌 TRX/USD 시세 × 실시간 USD/KRW 환율 (Stake 기준과 거의 같아요) · 업비트 = 국내 원화 시세(김치프리미엄 포함) · 60초마다 자동 갱신</p>'+
+      '<p class="hint">잔액 숫자가 시세에 따라 조금씩 달라지는 게 싫으면 <b>수동 입력</b>을 고르세요. 넣어 둔 시세·잔액이 그대로 유지돼요.</p>'+
       '<label class="field"><span>적용 시세 (1 TRX)</span>'+
         '<div class="field-in"><input id="priceInput" inputmode="decimal" autocomplete="off" data-num="dec" value="'+S.trxPrice+'" aria-label="TRX 시세"><em>원</em></div>'+
       '</label>'+
@@ -2241,14 +2289,22 @@ $('#fileIn').addEventListener('change',e=>{
 /* ---------------- boot ---------------- */
 renderAll();
 if(fresh) save(); else renderTop();   /* persist seed on first run only */
+if(restoreNotice){ persist(); }       /* 직전 본으로 되살렸으면 바로 다시 정상 저장한다 */
+if(restoreNotice) setTimeout(()=>toast(restoreNotice),700);
 if(S.pinOff) document.body.classList.add('unlocked');
 fetchRemote();                        /* warm the encrypted file so one PIN entry also opens remote data */
 if(!S.pinOff&&!unlocked) showLock();
 
 if(S.autoPrice){
-  syncPrice().then(r=>{
-    if(!r.ok){ renderTop(); renderTron(); }
-  });
+  /* 앱을 다시 열었을 때 잔액 숫자가 갑자기 달라지지 않도록, 방금 받아 둔 시세(60초 이내)는 그대로 쓴다 */
+  const age=S.priceAt?(Date.now()-S.priceAt):Infinity;
+  if(age>60000){
+    syncPrice().then(r=>{
+      if(!r.ok){ renderTop(); renderTron(); }
+    });
+  }else{
+    renderTron();
+  }
 }else{
   renderTron();
 }
