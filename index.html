@@ -73,6 +73,52 @@ input{font-family:inherit}
 .price-pill.live .src-dot{background:var(--mint);box-shadow:0 0 0 3px rgba(42,199,124,.13)}
 .price-pill .src{font-size:11px;font-weight:600;color:var(--txt-3)}
 .price-pill .pv{font-size:11px;font-weight:600;color:var(--txt-3);letter-spacing:0}
+/* ---------- 총 자산 캡슐 ---------- */
+.bal-wrap{position:relative;display:flex;align-items:center;flex:none}
+.bal-pill{display:inline-flex;align-items:center;gap:9px;height:38px;padding:0 11px 0 6px;border-radius:999px;
+  color:#fff;background:linear-gradient(180deg,#1E1E25 0%,#15151A 100%);border:1px solid rgba(255,255,255,.1);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 6px 18px rgba(0,0,0,.26);
+  transition:background .16s var(--ease),border-color .16s var(--ease),box-shadow .16s var(--ease),transform .12s var(--ease)}
+.bal-pill:hover{background:linear-gradient(180deg,#24242E 0%,#181820 100%);border-color:rgba(255,255,255,.17)}
+.bal-pill:active{transform:scale(.985)}
+.bal-pill[aria-expanded="true"]{background:linear-gradient(180deg,#232939 0%,#171A22 100%);border-color:rgba(122,160,255,.36);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 8px 22px rgba(0,0,0,.32)}
+.won-badge{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;
+  background:radial-gradient(120% 120% at 30% 16%,#6D88C4 0%,#3A4E78 46%,#1C2540 100%);
+  box-shadow:inset 0 0 0 1px rgba(150,180,240,.28),0 2px 6px rgba(0,0,0,.34)}
+.won-badge svg{width:15px;height:15px;display:block}
+.bal-val{font-size:14.5px;font-weight:700;letter-spacing:-.025em;font-variant-numeric:tabular-nums;line-height:1.05;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:196px}
+.bal-caret{width:15px;height:15px;flex:none;color:#8E949E;transition:transform .22s var(--ease),color .16s var(--ease)}
+.bal-pill[aria-expanded="true"] .bal-caret{transform:rotate(180deg);color:#CDD5E4}
+.bal-menu{position:absolute;top:calc(100% + 13px);right:-42px;z-index:60;width:300px;max-width:calc(100vw - 28px);padding:9px;
+  border-radius:20px;background:#15151A;border:1px solid rgba(255,255,255,.09);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 24px 60px rgba(0,0,0,.62);
+  opacity:0;transform:translateY(-8px) scale(.97);transform-origin:top right;pointer-events:none;
+  transition:opacity .18s var(--ease),transform .22s var(--ease)}
+.bal-menu.open{opacity:1;transform:none;pointer-events:auto}
+.bal-menu[hidden]{display:none}
+.bal-item{display:flex;align-items:center;gap:11px;padding:11px 10px;border-radius:14px}
+.bal-ico{width:34px;height:34px;border-radius:50%;flex:none;overflow:hidden;background:rgba(255,255,255,.06)}
+.bal-ico img{width:100%;height:100%;display:block}
+.bal-meta{flex:1;min-width:0}
+.bal-name{display:flex;align-items:center;gap:5px;font-size:13.5px;font-weight:700;letter-spacing:-.025em;color:#fff;line-height:1.2}
+.bal-name i{font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.01em;color:#9BA1AC;
+  background:rgba(255,255,255,.075);border-radius:5px;padding:2px 5px}
+.bal-sub{margin-top:4px;font-size:11px;font-weight:600;letter-spacing:0;color:var(--txt-3);
+  font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bal-amt{flex:none;text-align:right;font-size:13.5px;font-weight:700;letter-spacing:-.02em;color:#fff;
+  font-variant-numeric:tabular-nums;line-height:1.2;white-space:nowrap}
+.bal-amt small{display:block;margin-top:4px;font-size:10.5px;font-weight:600;letter-spacing:0;color:var(--txt-3)}
+.bal-foot{width:100%;margin-top:6px;padding:9px 10px 7px;border-top:1px solid rgba(255,255,255,.065);
+  display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:600;
+  color:#B4BBC6;font-variant-numeric:tabular-nums;transition:color .14s var(--ease)}
+.bal-foot:hover{color:#fff}
+.bal-foot .fl{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.bal-foot .fl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bal-foot .dot{width:5px;height:5px;border-radius:50%;background:#5B616B;flex:none;transition:background .2s}
+.bal-foot.live .dot{background:var(--mint);box-shadow:0 0 0 3px rgba(42,199,124,.13)}
+.bal-foot .go{flex:none;font-size:10.5px;color:var(--txt-4)}
 .icon-btn{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#C3C8CF;
   background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.05);transition:.16s var(--ease)}
 .icon-btn:hover{background:rgba(255,255,255,.1);color:#fff}
@@ -397,8 +443,14 @@ input{font-family:inherit}
   .mark{width:32px;height:32px;border-radius:10px}
   .mark svg{width:18px;height:18px}
   .brand-txt b{font-size:15px}
-  .price-pill{height:32px;padding:0 10px;font-size:12px;gap:6px}
-  .price-pill .src{display:none}
+  .price-pill{display:none}
+  .bal-pill{height:34px;padding:0 9px 0 5px;gap:8px}
+  .won-badge{width:24px;height:24px}
+  .won-badge svg{width:14px;height:14px}
+  .bal-val{font-size:13.5px;max-width:min(152px,40vw)}
+  .bal-caret{width:14px;height:14px}
+  .bal-menu{width:296px;top:calc(100% + 11px);right:-38px;border-radius:18px}
+  .bal-item{padding:10px 9px;gap:10px}
   .icon-btn{width:32px;height:32px;border-radius:10px}
   .top-acts{gap:6px}
   .wrap{padding:12px 14px 60px}
@@ -475,6 +527,35 @@ input{font-family:inherit}
         <b id="pricePillVal">—</b>
         <span class="src" id="pricePillSrc">시세</span>
       </button>
+      <div class="bal-wrap">
+        <button class="bal-pill" id="balPill" data-act="bal:toggle" aria-haspopup="true" aria-expanded="false" aria-controls="balMenu">
+          <span class="won-badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.6 7.4 7.4 16.6 12 9.4l4.6 7.2 2.8-9.2"/><path d="M6.9 12.3h10.2M7.4 14.7h9.2"/></svg></span>
+          <span class="bal-val" id="balPillVal">₩0</span>
+          <svg class="bal-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9.5 6 6 6-6"/></svg>
+        </button>
+        <div class="bal-menu" id="balMenu" role="group" aria-label="자산 상세" hidden>
+          <div class="bal-item">
+            <span class="bal-ico"><img src="icons/tron.svg" alt=""></span>
+            <div class="bal-meta">
+              <div class="bal-name">트론 <i>TRX</i></div>
+              <div class="bal-sub" id="balTrxSub">1 TRX = —</div>
+            </div>
+            <div class="bal-amt"><span id="balTrxAmt">₩0</span><small id="balTrxQty">0 TRX</small></div>
+          </div>
+          <div class="bal-item">
+            <span class="bal-ico"><img src="icons/bank.svg" alt=""></span>
+            <div class="bal-meta">
+              <div class="bal-name">계좌 잔액</div>
+              <div class="bal-sub" id="balBankSub">등록된 계좌 없음</div>
+            </div>
+            <div class="bal-amt"><span id="balBankAmt">₩0</span></div>
+          </div>
+          <button class="bal-foot" id="balFoot" data-act="price">
+            <span class="fl"><span class="dot"></span><span id="balFootTxt">시세 확인 중</span></span>
+            <span class="go">시세 설정 ›</span>
+          </button>
+        </div>
+      </div>
       <button class="icon-btn" data-act="settings" aria-label="설정" title="설정">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>
@@ -825,7 +906,52 @@ function renderTop(){
   $('#maskBtn').classList.toggle('on',S.mask);
   $('#maskBtn').setAttribute('aria-label',S.mask?'금액 보이기':'금액 숨기기');
   $('#savedAt').textContent = S.mask ? '금액 숨김 · 자동 저장' : syncLabel();
+  renderBal();
 }
+
+/* 상단 총자산 캡슐 + 드롭다운 */
+function pillKrw(n){
+  if(S.mask) return '₩••••••';
+  return '₩'+nf0.format(Math.round(Number(n)||0));
+}
+function renderBal(){
+  const pv=$('#balPillVal'); if(!pv) return;
+  const t=trxValue(), b=bankTotal(), tot=t+b;
+  pv.textContent=pillKrw(tot);
+  $('#balTrxAmt').textContent=pillKrw(t);
+  $('#balTrxQty').textContent=S.mask?'•••• TRX':nf2.format(Math.round((Number(S.trxQty)||0)*100)/100)+' TRX';
+  $('#balTrxSub').textContent=S.mask?'1 TRX = ••••':('1 TRX = '+priceTxt());
+  $('#balBankAmt').textContent=pillKrw(b);
+  $('#balBankSub').textContent=S.accounts.length?(S.accounts.length+'개 계좌'):'등록된 계좌 없음';
+  const live=!!S.autoPrice && S.priceSource && S.priceSource!=='수동';
+  const when=S.priceAt?timeTxt(S.priceAt):null;
+  const foot=$('#balFoot');
+  if(foot){
+    foot.classList.toggle('live',!!live);
+    $('#balFootTxt').textContent=S.mask?'금액 숨김':(live
+      ? (S.priceSource+(when?' · '+when:' · 실시간'))
+      : (when?'수동 시세 · '+when:'수동 시세'));
+  }
+  $('#balPill').setAttribute('aria-label','총 자산 '+pillKrw(tot)+' · 자세히 보기');
+  $('#balPill').setAttribute('aria-expanded',balMenuOpen()?'true':'false');
+}
+function balMenuOpen(){ const m=$('#balMenu'); return !!m && !m.hidden; }
+function openBalMenu(){
+  const m=$('#balMenu'), p=$('#balPill');
+  if(!m || !m.hidden) return;
+  renderBal();
+  m.hidden=false;
+  p.setAttribute('aria-expanded','true');
+  requestAnimationFrame(()=>m.classList.add('open'));
+}
+function closeBalMenu(){
+  const m=$('#balMenu'), p=$('#balPill');
+  if(!m || m.hidden) return;
+  m.classList.remove('open');
+  if(p) p.setAttribute('aria-expanded','false');
+  setTimeout(()=>{ if(!m.classList.contains('open')) m.hidden=true; },200);
+}
+function toggleBalMenu(){ if(balMenuOpen()) closeBalMenu(); else openBalMenu(); }
 function timeAgo(ts){
   if(!ts) return '';
   const s=Math.max(0,Math.round((Date.now()-ts)/1000));
@@ -1879,6 +2005,8 @@ async function syncNow(){
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');
   const inPop=pop.contains(e.target);
+  /* 동결 메뉴: 버튼·메뉴 밖을 누르면 닫힘 */
+  if(balMenuOpen() && !$('#balMenu').contains(e.target) && !e.target.closest('#balPill')) closeBalMenu();
   if(!pop.hidden&&!inPop&&!b){ closePop(); }
   if(!b){
     if(!pop.hidden&&!inPop) closePop();
@@ -1889,6 +2017,7 @@ document.addEventListener('click',e=>{
 
   switch(act){
     case 'sheet:close': closeSheet(); return;
+    case 'bal:toggle': toggleBalMenu(); return;
     case 'mask':
       S.mask=!S.mask; save(); renderAll();
       toast(S.mask?'금액을 가렸어요':'금액을 표시해요');
@@ -1908,7 +2037,7 @@ document.addEventListener('click',e=>{
       },true);
       return;
     case 'pin:change': openPinSheet('set'); return;
-    case 'price': openPriceSheet(); return;
+    case 'price': closeBalMenu(); openPriceSheet(); return;
     case 'goal': openGoalSheet(); return;
     case 'trx:quick': adjustTrx(Number(b.dataset.v)); return;
     case 'trx:modal': openAmountSheet('trx',null,'+'); return;
@@ -2098,8 +2227,8 @@ document.addEventListener('click',e=>{
 });
 
 overlay.addEventListener('click',e=>{ if(e.target===overlay) closeSheet(); });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(!overlay.hidden) closeSheet(); closePop(); } });
-window.addEventListener('resize',()=>{ closePop(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(!overlay.hidden) closeSheet(); closePop(); closeBalMenu(); } });
+window.addEventListener('resize',()=>{ closePop(); closeBalMenu(); });
 document.addEventListener('wheel',()=>{ if(!pop.hidden) closePop(); },{passive:true,capture:true});
 document.addEventListener('touchmove',()=>{ if(!pop.hidden) closePop(); },{passive:true,capture:true});
 
