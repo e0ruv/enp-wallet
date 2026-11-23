@@ -263,8 +263,19 @@ input{font-family:inherit}
 .seg-b.on{background:var(--blue);color:#fff}
 .seg-b.on[data-v="-"]{background:var(--coral);color:#fff}
 
+/* 보정 부호 토글(iOS 숫자 키패드에 − 키가 없어서 버튼으로 고른다) */
+.off-sign{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:3px;border-radius:11px;background:rgba(255,255,255,.07);flex:none}
+.off-sign button{width:38px;height:40px;border-radius:8px;font-size:18px;font-weight:700;line-height:1;color:var(--txt-3);transition:.16s var(--ease)}
+.off-sign button.on{background:var(--blue);color:#fff}
+.off-sign button.on[data-v="-"]{background:var(--coral);color:#fff}
+.off-sign button:active{transform:scale(.94)}
+
 .field{display:block;margin-top:16px}
 .field>span{display:block;font-size:12px;font-weight:600;color:var(--txt-3);margin-bottom:8px}
+.field>span.signed{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.field>span .fv{font-style:normal;font-size:11.5px;font-weight:700;color:var(--txt-3);font-variant-numeric:tabular-nums}
+.field>span .fv.neg{color:#FF8B94}
+.field>span .fv.pos{color:var(--mint)}
 .field-in{display:flex;align-items:center;gap:8px;height:56px;padding:0 16px;border-radius:14px;
   background:var(--raise);border:1px solid transparent;transition:.16s}
 .field-in:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(49,130,246,.16)}
@@ -1182,6 +1193,54 @@ function openGoalSheet(){
 }
 
 /* price sheet */
+function priceOffSign(){
+  const el=sheetEl&&sheetEl.querySelector('.off-sign button.on');
+  return (el&&el.dataset.v==='-')?'-':'+';
+}
+function setPriceOffSign(v){
+  if(!sheetEl) return;
+  sheetEl.querySelectorAll('.off-sign button').forEach(x=>{
+    const on=x.dataset.v===v;
+    x.classList.toggle('on',on);
+    x.setAttribute('aria-pressed',on?'true':'false');
+  });
+}
+/* 부호 버튼 + 숫자만 입력한 값을 합쳐 실제 보정값을 만든다 (− + 0.24 → -0.24) */
+function curPriceOffset(){
+  const inp=$('#priceOffsetInput');
+  if(!inp) return Number(S.priceOffset)||0;
+  const mag=parseNum(inp.value);
+  const v=(priceOffSign()==='-'?-1:1)*mag;
+  return Math.round(v*100)/100;
+}
+function updPriceSheet(){
+  const inp=$('#priceInput');
+  if(!inp) return;
+  const v=Math.max(0,parseNum(inp.value));
+  const box=$('#pricePreview');
+  if(box) box.innerHTML='보유 <b>'+nfq.format(S.trxQty)+' TRX</b> 기준 평가금액 <b>'+krw(S.trxQty*v)+'</b>';
+  const off=curPriceOffset();
+  const echo=$('#priceOffsetEcho');
+  if(echo){ echo.textContent=offsetTxt(off); echo.className='fv'+(off<0?' neg':off>0?' pos':''); }
+  const note=$('#priceOffsetNote');
+  if(!note) return;
+  const raw=Number(S.priceRaw)>0?Number(S.priceRaw):null;
+  const show=!!S.autoPrice&&raw!==null&&S.priceFeed!=='upbit';
+  note.style.display=show?'':'none';
+  note.innerHTML=show?'실시간 <b>'+nf2.format(raw)+'원</b> + 보정 '+offsetTxt(off)+' = <b>'+nf2.format(applyPriceOffset(raw,off))+'원</b>':'';
+}
+function onPriceOffsetEdit(){
+  const offInp=$('#priceOffsetInput');
+  if(!offInp) return;
+  /* iOS 숫자 키패드에는 − 키가 없어요. 붙여넣기로 −/+가 들어오면 부호 버튼 쪽에 반영한다. */
+  if(/[-\u2212]/.test(offInp.value)) setPriceOffSign('-');
+  else if(/^\s*\+/.test(offInp.value)) setPriceOffSign('+');
+  if(S.autoPrice && S.priceFeed!=='upbit' && Number(S.priceRaw)>0){
+    const inp=$('#priceInput');
+    if(inp){ const fin=applyPriceOffset(S.priceRaw,curPriceOffset()); inp.value=(Number.isInteger(fin)?nf0.format(fin):nf2.format(fin)); }
+  }
+  updPriceSheet();
+}
 function openPriceSheet(){
   sheetState={type:'price'};
   const auto=!!S.autoPrice;
@@ -1190,6 +1249,10 @@ function openPriceSheet(){
   const hintTxt=auto
     ? '자동 시세를 쓰는 중이에요. 값을 직접 고치고 저장하면 수동 입력으로 바뀌어요.'
     : '수동 입력을 쓰는 중이에요. 원하는 시세를 직접 넣어 주세요.';
+  const offVal=Number(S.priceOffset)||0;
+  const offSign=offVal>0?'+':'-';   /* 0·음수면 −로 시작 (기본 -0.24원과 같은 방향) */
+  const offMag=Math.abs(offVal);
+  const offMagTxt=offMag?(Number.isInteger(offMag)?nf0.format(offMag):nf2.format(offMag)):'0';
   openSheet(head('TRX 시세 설정','수량만 입력하면 이 시세로 원화 평가금액이 자동 계산돼요.')+
     '<div class="sheet-body">'+
       '<div class="seg three">'+
@@ -1202,10 +1265,17 @@ function openPriceSheet(){
       '<label class="field"><span>적용 시세 (1 TRX)</span>'+
         '<div class="field-in"><input id="priceInput" inputmode="decimal" autocomplete="off" data-num="dec" value="'+S.trxPrice+'" aria-label="TRX 시세"><em>원</em></div>'+
       '</label>'+
-      '<label class="field"><span>시세 보정 (원)</span>'+
-        '<div class="field-in"><input id="priceOffsetInput" inputmode="decimal" autocomplete="off" data-num="sdec" value="'+S.priceOffset+'" placeholder="-0.24" aria-label="시세 보정"><em>원</em></div>'+
+      '<label class="field"><span class="signed">시세 보정 (원)<em class="fv" id="priceOffsetEcho"></em></span>'+
+        '<div class="field-in">'+
+          '<div class="off-sign" role="group" aria-label="시세 보정 부호">'+
+            '<button type="button" class="'+(offSign==='-'?'on':'')+'" data-act="price:sign" data-v="-" aria-label="마이너스 보정" aria-pressed="'+(offSign==='-'?'true':'false')+'">−</button>'+
+            '<button type="button" class="'+(offSign==='+'?'on':'')+'" data-act="price:sign" data-v="+" aria-label="플러스 보정" aria-pressed="'+(offSign==='+'?'true':'false')+'">+</button>'+
+          '</div>'+
+          '<input id="priceOffsetInput" inputmode="decimal" autocomplete="off" data-num="dec" value="'+offMagTxt+'" placeholder="0.24" aria-label="시세 보정 값 (부호 제외)">'+
+          '<em>원</em>'+
+        '</div>'+
       '</label>'+
-      '<p class="hint">코인게코(글로벌) 실시간 시세에 이 값을 더해 최종 시세를 만들어요. 기본 <b>-0.24원</b> · <b>0</b>으로 두면 원시세 그대로 · 1원 아래로는 내려가지 않아요. 업비트·수동 시세에는 적용되지 않아요.</p>'+
+      '<p class="hint">코인게코(글로벌) 실시간 시세에 이 값을 더해 최종 시세를 만들어요. 왼쪽 <b>−</b>/<b>+</b> 버튼으로 부호를 고르고 숫자만 입력하면 돼요(예: <b>−</b> + <b>0.24</b> → −0.24원) · 기본 <b>−0.24원</b> · <b>0</b>이면 원시세 그대로 · 1원 아래로는 내려가지 않아요. 업비트·수동 시세에는 적용되지 않아요.</p>'+
       '<p class="hint" id="priceOffsetNote"></p>'+
       (S.priceAt?'<p class="hint">마지막 확인 '+timeTxt(S.priceAt)+' · '+esc(S.priceSource||'수동')+'</p>':'')+
       '<div class="preview" id="pricePreview"></div>'+
@@ -1215,31 +1285,9 @@ function openPriceSheet(){
   );
   const inp=$('#priceInput');
   const offInp=$('#priceOffsetInput');
-  const upd=()=>{
-    const v=Math.max(0,parseNum(inp.value));
-    $('#pricePreview').innerHTML='보유 <b>'+nfq.format(S.trxQty)+' TRX</b> 기준 평가금액 <b>'+krw(S.trxQty*v)+'</b>';
-    const note=$('#priceOffsetNote');
-    if(note){
-      const raw=Number(S.priceRaw)>0?Number(S.priceRaw):null;
-      const off=parseSigned(offInp.value);
-      const show=auto&&raw!==null&&S.priceFeed!=='upbit';
-      note.style.display=show?'':'none';
-      note.innerHTML=show
-        ? '실시간 <b>'+nf2.format(raw)+'원</b> + 보정 '+offsetTxt(off)+' = <b>'+nf2.format(applyPriceOffset(raw,off))+'원</b>'
-        : '';
-    }
-  };
-  const onOff=()=>{
-    const off=parseSigned(offInp.value);
-    if(S.autoPrice && S.priceFeed!=='upbit' && Number(S.priceRaw)>0){
-      const fin=applyPriceOffset(S.priceRaw,off);
-      inp.value=(Number.isInteger(fin)?nf0.format(fin):nf2.format(fin));
-    }
-    upd();
-  };
-  inp.addEventListener('input',upd);
-  offInp.addEventListener('input',onOff);
-  upd();
+  if(inp) inp.addEventListener('input',updPriceSheet);
+  if(offInp) offInp.addEventListener('input',onPriceOffsetEdit);
+  updPriceSheet();
 }
 
 /* settings */
@@ -1955,6 +2003,14 @@ document.addEventListener('click',e=>{
     toast(v?'목표를 '+nf0.format(v)+'원으로 정했어요':'목표를 지웠어요'); return;
   }
   if(act==='goal:clear'){ S.goal=null; save(); renderAll(); closeSheet(); toast('목표를 지웠어요'); return; }
+  if(act==='price:sign'){
+    if(!sheetState||sheetState.type!=='price') return;
+    setPriceOffSign(b.dataset.v==='-'?'-':'+');
+    const offInp=$('#priceOffsetInput');
+    if(offInp && /[-\u2212+]/.test(offInp.value)) offInp.value=offInp.value.replace(/[-\u2212+]/g,'');
+    onPriceOffsetEdit();
+    return;
+  }
   if(act==='price:feed'){
     const v=b.dataset.v;
     if(v==='manual'){
@@ -1984,7 +2040,7 @@ document.addEventListener('click',e=>{
       if(r){
         const raw=Math.round(r.price*100)/100;
         const useOff=!!(S.priceFeed!=='upbit' && (r.src==='코인게코'||r.src==='글로벌'));
-        const off=offInp?parseSigned(offInp.value):Number(S.priceOffset)||0;
+        const off=offInp?curPriceOffset():Number(S.priceOffset)||0;
         const fin=useOff?applyPriceOffset(raw,off):raw;
         const inp=$('#priceInput');
         if(inp&&!S.autoPrice){ inp.value=String(fin); inp.dispatchEvent(new Event('input')); }
@@ -2002,7 +2058,7 @@ document.addEventListener('click',e=>{
   if(act==='price:save'){
     const offInp=$('#priceOffsetInput');
     const prevOff=Number(S.priceOffset)||0;
-    const nextOff=offInp?Math.max(-1e6,Math.min(1e6,Math.round(parseSigned(offInp.value)*100)/100)):prevOff;
+    const nextOff=offInp?Math.max(-1e6,Math.min(1e6,Math.round(curPriceOffset()*100)/100)):prevOff;
     const v=parseNum($('#priceInput').value);
     if(!(v>0)){ toast('시세를 입력해 주세요'); return; }
     const raw=Number(S.priceRaw)>0?Number(S.priceRaw):null;
