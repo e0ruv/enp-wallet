@@ -338,6 +338,19 @@ input{font-family:inherit}
 .preview b{color:#fff;font-weight:700}
 .preview .arrow{color:var(--blue-txt);margin:0 6px}
 
+/* Stake 금액으로 시세 자동 맞춤 */
+.fit-box{margin-top:18px;padding:15px 15px 14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
+.fit-box .set-sec{margin:0;color:var(--txt-2);letter-spacing:0;font-size:11.5px}
+.fit-box .hint{margin-top:6px}
+.fit-row{display:flex;align-items:center;gap:8px;margin-top:11px}
+.fit-row .field-in{flex:1;min-width:0;height:48px;padding:0 13px;background:rgba(0,0,0,.26)}
+.fit-row .field-in input{font-size:17px;font-weight:700}
+.fit-row .btn{flex:none;height:48px;border-radius:12px;padding:0 16px;font-size:13.5px}
+.fit-note{font-variant-numeric:tabular-nums}
+.fit-note.err{color:#FF8B94}
+.fit-note.ok{color:var(--txt-2)}
+.fit-note b{color:#fff;font-weight:700}
+
 .set-row{display:flex;align-items:center;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
 .set-row:first-child{border-top:0;padding-top:2px}
 .set-row .txt{flex:1;min-width:0}
@@ -509,6 +522,11 @@ input{font-family:inherit}
   .sheet-head h3{font-size:18px}
   .btn{height:50px;font-size:14.5px}
   .toast{bottom:calc(18px + var(--safe-bottom))}
+}
+@media (max-width:350px){
+  .fit-row .field-in{padding:0 10px}
+  .fit-row .field-in input{font-size:15px}
+  .fit-row .btn{padding:0 11px;font-size:12.5px}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.001s !important;transition-duration:.001s !important}
@@ -1451,6 +1469,15 @@ function openPriceSheet(){
       '</label>'+
       '<p class="hint">코인게코(글로벌) 실시간 시세에 이 값을 더해 최종 시세를 만들어요. 왼쪽 <b>−</b>/<b>+</b> 버튼으로 부호를 고르고 숫자만 입력하면 돼요(예: <b>−</b> + <b>0.24</b> → −0.24원) · 기본 <b>−0.24원</b> · <b>0</b>이면 원시세 그대로 · 1원 아래로는 내려가지 않아요. 업비트·수동 시세에는 적용되지 않아요.</p>'+
       '<p class="hint" id="priceOffsetNote"></p>'+
+      '<div class="fit-box">'+
+        '<div class="set-sec">Stake 금액으로 자동 맞춤</div>'+
+        '<p class="hint">Stake 화면에 뜬 지금 원화 금액을 넣으면 보유 TRX 수량으로 나눠 1 TRX 시세를 구하고, 코인게코 시세와의 차이를 보정값으로 바로 저장해요.</p>'+
+        '<div class="fit-row">'+
+          '<div class="field-in"><input id="stakeKrwInput" inputmode="decimal" autocomplete="off" data-num="dec" placeholder="7083737.39" aria-label="Stake 원화 금액"><em>원</em></div>'+
+          '<button class="btn primary" data-act="price:fit">자동 맞추기</button>'+
+        '</div>'+
+        '<p class="hint fit-note" id="stakeFitNote" aria-live="polite">지금 보유 <b>'+nfq.format(Number(S.trxQty)||0)+' TRX</b></p>'+
+      '</div>'+
       (S.priceAt?'<p class="hint">마지막 확인 '+timeTxt(S.priceAt)+' · '+esc(S.priceSource||'수동')+'</p>':'')+
       '<div class="preview" id="pricePreview"></div>'+
       '<button class="btn ghost sm" style="width:100%;margin-top:12px" data-act="price:fetch">지금 시세 확인</button>'+
@@ -1461,7 +1488,74 @@ function openPriceSheet(){
   const offInp=$('#priceOffsetInput');
   if(inp) inp.addEventListener('input',updPriceSheet);
   if(offInp) offInp.addEventListener('input',onPriceOffsetEdit);
+  const stakeInp=$('#stakeKrwInput');
+  if(stakeInp) stakeInp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); fitPriceToStake(); } });
   updPriceSheet();
+}
+
+/* Stake에 표시된 원화 금액 → 1 TRX 시세 → 코인게코 원시세와의 차이를 보정값으로 저장 */
+function stakeFitNote(txt,kind){
+  const el=$('#stakeFitNote');
+  if(!el) return;
+  el.className='hint fit-note'+(kind?' '+kind:'');
+  el.innerHTML=txt;
+}
+async function fitPriceToStake(){
+  if(!sheetState||sheetState.type!=='price') return;
+  const btn=sheetEl&&sheetEl.querySelector('[data-act="price:fit"]');
+  const stakeInp=$('#stakeKrwInput');
+  const stake=stakeInp?parseNum(stakeInp.value):0;
+  const qty=Number(S.trxQty)||0;
+  if(!(stake>0)){
+    stakeFitNote('Stake에 표시된 원화 금액을 먼저 입력해 주세요','err');
+    if(stakeInp) stakeInp.focus();
+    return;
+  }
+  if(!(qty>0)){ stakeFitNote('트론 수량이 0보다 커야 계산할 수 있어요','err'); return; }
+  if(btn){ btn.disabled=true; btn.textContent='계산 중…'; }
+  stakeFitNote('코인게코 실시간 시세를 확인하는 중…');
+  const r=await fetchGlobalPrice();
+  const liveSrc=(r&&r.src)?r.src:'';
+  /* 보정은 코인게코(글로벌) 시세에만 적용된다 — 국내 시세로 떨어졌을 때는 맞추지 않는다 */
+  let base=(r&&Number(r.price)>0&&liveSrc!=='업비트'&&liveSrc!=='빗썸')?Number(r.price):0;
+  let src=base?liveSrc:'';
+  let stale=false;
+  if(!(base>0)&&Number(S.priceRaw)>0&&S.priceFeed!=='upbit'){
+    base=Number(S.priceRaw); src=S.priceSource||'저장된 시세'; stale=true;
+  }
+  if(btn){ btn.disabled=false; btn.textContent='자동 맞추기'; }
+  if(!(base>0)){ stakeFitNote('실시간 시세를 불러오지 못했어요. 잠시 뒤 다시 눌러 주세요','err'); return; }
+  base=Math.round(base*100)/100;
+  const target=stake/qty;
+  let off=Math.round((target-base)*100)/100;   /* 화면 표시와 같은 2자리(−1.67원)로 맞춘다 */
+  off=Math.max(-1e6,Math.min(1e6,off));
+  S.priceOffset=off;
+  S.autoPrice=true; S.priceFeed='global';       /* 보정은 코인게코(글로벌) 시세에만 적용된다 */
+  S.priceRaw=base;
+  S.trxPrice=applyPriceOffset(base,off);
+  S.priceSource=src||'코인게코';
+  S.priceAt=Date.now();
+  setPriceOffSign(off<0?'-':'+');
+  const offInp=$('#priceOffsetInput');
+  if(offInp){ const m=Math.abs(off); offInp.value=m?(Number.isInteger(m)?nf0.format(m):nf2.format(m)):'0'; }
+  const pi=$('#priceInput'); if(pi) pi.value=String(S.trxPrice);
+  updPriceSheet();
+  save(); renderAll();
+  /* 수동·업비트에서 눌렀을 수 있어 모달의 모드 표시·저장 버튼도 실제 상태(코인게코 자동)에 맞춘다 */
+  if(sheetEl){
+    sheetEl.querySelectorAll('[data-act="price:feed"]').forEach(x=>{
+      const on=x.dataset.v==='global';
+      x.classList.toggle('on',on);
+      x.setAttribute('aria-pressed',on?'true':'false');
+    });
+    const mh=sheetEl.querySelector('.sheet-body > p.hint');
+    if(mh) mh.textContent='자동 시세를 쓰는 중이에요. 값을 직접 고치고 저장하면 수동 입력으로 바뀌어요.';
+    const saveBtn=sheetEl.querySelector('[data-act="price:save"]');
+    if(saveBtn) saveBtn.textContent='지금 시세로 갱신';
+  }
+  const shown=(Number(S.trxQty)||0)*(Number(S.trxPrice)||0);
+  stakeFitNote('보정 <b>'+offsetTxt(off)+'</b> 적용 · 1 TRX <b>'+nf2.format(S.trxPrice)+'원</b><br>보유 '+nfq.format(Number(S.trxQty)||0)+' TRX ≈ <b>'+krw(shown)+'</b>'+(stale?' · 저장된 시세 기준':''),'ok');
+  toast('Stake 금액에 맞춰 보정 '+offsetTxt(off)+' 적용');
 }
 
 /* settings */
@@ -2232,6 +2326,7 @@ document.addEventListener('click',e=>{
     });
     return;
   }
+  if(act==='price:fit'){ fitPriceToStake(); return; }
   if(act==='price:save'){
     const offInp=$('#priceOffsetInput');
     const prevOff=Number(S.priceOffset)||0;
